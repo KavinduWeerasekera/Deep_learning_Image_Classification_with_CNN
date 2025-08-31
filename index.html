@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIFAR-10 Image Classifier</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, #f8f9ff, #e8f0ff);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            border-color: #4ecdc4;
+            background: linear-gradient(135deg, #f0f8ff, #e0f0ff);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-area.dragover {
+            border-color: #ff6b6b;
+            background: linear-gradient(135deg, #fff0f0, #ffe8e8);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover .upload-icon {
+            color: #4ecdc4;
+            transform: scale(1.1);
+        }
+
+        .upload-text {
+            font-size: 1.3rem;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        .upload-hint {
+            color: #888;
+            font-size: 1rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .results-section {
+            display: none;
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .image-preview {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .preview-img {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border: 3px solid #fff;
+        }
+
+        .predictions {
+            background: linear-gradient(135deg, #f8f9ff, #e8f0ff);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .prediction-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .prediction-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .prediction-label {
+            font-weight: bold;
+            min-width: 140px;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .confidence-bar {
+            flex: 1;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            margin: 0 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1.5s ease;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .confidence-value {
+            font-weight: bold;
+            color: #666;
+            min-width: 60px;
+            font-size: 1rem;
+        }
+
+        .top-prediction {
+            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+            color: white;
+            transform: scale(1.02);
+            border: 2px solid #fff;
+        }
+
+        .top-prediction .prediction-label,
+        .top-prediction .confidence-value {
+            color: white;
+        }
+
+        .top-prediction .confidence-fill {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .model-info {
+            background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+            color: #2d3436;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+
+        .model-info h3 {
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .model-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .reset-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .reset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2rem;
+            display: none;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e0e0e0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .class-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+        }
+
+        .class-item {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #555;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .class-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, #ff7675, #fd79a8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .success-message {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #00b894;
+            box-shadow: 0 0 10px #00b894;
+        }
+
+        .status-offline {
+            background: #ff7675;
+            box-shadow: 0 0 10px #ff7675;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🖼️ CIFAR-10 Image Classifier</h1>
+            <p>Upload an image to classify it using our trained CNN model</p>
+            <div style="margin-top: 15px; font-size: 0.9rem;">
+                <span id="statusIndicator" class="status-indicator status-offline"></span>
+                <span id="statusText">Checking connection...</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">Drop your image here or click to browse</div>
+                    <div class="upload-hint">Supports JPG, PNG, GIF (Max 10MB) • Works best with simple, centered objects</div>
+                </div>
+                <input type="file" id="fileInput" accept="image/*">
+                
+                <div class="model-info">
+                    <h3>🧠 Model Details</h3>
+                    <p>Convolutional Neural Network trained on CIFAR-10 dataset with hyperparameter optimization. The model achieved 87.44% training accuracy and 84.06% validation accuracy after 50 epochs.</p>
+                    
+                    <div class="model-stats" id="modelStats">
+                        <div class="stat-item">
+                            <div class="stat-label">Training Accuracy</div>
+                            <div>87.44%</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Validation Accuracy</div>
+                            <div>84.06%</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Architecture</div>
+                            <div>4 Conv + 2 Dense</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Optimizer</div>
+                            <div>Adam (LR: 0.000518)</div>
+                        </div>
+                    </div>
+
+                    <div class="class-grid">
+                        <div class="class-item">✈️ Airplane</div>
+                        <div class="class-item">🚗 Automobile</div>
+                        <div class="class-item">🐦 Bird</div>
+                        <div class="class-item">🐱 Cat</div>
+                        <div class="class-item">🦌 Deer</div>
+                        <div class="class-item">🐕 Dog</div>
+                        <div class="class-item">🐸 Frog</div>
+                        <div class="class-item">🐴 Horse</div>
+                        <div class="class-item">🚢 Ship</div>
+                        <div class="class-item">🚛 Truck</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="loading" id="loadingSection">
+                <div class="spinner"></div>
+                <div>Running inference on your trained model...</div>
+            </div>
+
+            <div class="results-section" id="resultsSection">
+                <div class="image-preview">
+                    <img id="previewImg" class="preview-img" alt="Uploaded image">
+                </div>
+
+                <div class="predictions" id="predictionsContainer">
+                    <h3 style="margin-bottom: 20px; color: #333; font-size: 1.5rem;">🎯 Classification Results</h3>
+                    <div id="predictionsList"></div>
+                </div>
+
+                <div style="text-align: center;">
+                    <button class="reset-btn" onclick="resetClassifier()">Classify Another Image</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const loadingSection = document.getElementById('loadingSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const previewImg = document.getElementById('previewImg');
+        const predictionsList = document.getElementById('predictionsList');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+
+        // Check server status on load
+        checkServerStatus();
+
+        // File upload event listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        uploadArea.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFileSelect);
+
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    statusIndicator.className = 'status-indicator status-online';
+                    statusText.textContent = data.model_loaded ? 'Model loaded & ready' : 'Server online (no model)';
+                    
+                    // Load model info if available
+                    loadModelInfo();
+                } else {
+                    throw new Error('Server unhealthy');
+                }
+            } catch (error) {
+                statusIndicator.className = 'status-indicator status-offline';
+                statusText.textContent = 'Server offline';
+                console.error('Server check failed:', error);
+            }
+        }
+
+        async function loadModelInfo() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/model_info`);
+                const data = await response.json();
+                
+                if (data.total_parameters) {
+                    const statsContainer = document.getElementById('modelStats');
+                    const newStats = `
+                        <div class="stat-item">
+                            <div class="stat-label">Model Parameters</div>
+                            <div>${data.total_parameters.toLocaleString()}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Input Shape</div>
+                            <div>${data.input_shape.join('×')}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Output Classes</div>
+                            <div>${data.output_classes}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Status</div>
+                            <div>Ready</div>
+                        </div>
+                    `;
+                    statsContainer.innerHTML = newStats;
+                }
+            } catch (error) {
+                console.error('Failed to load model info:', error);
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please upload an image file (JPG, PNG, GIF).');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showError('File size must be less than 10MB.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                showLoading();
+                
+                // Send to Flask backend for prediction
+                classifyImage(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function classifyImage(imageData) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: imageData
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showResults(result.predictions, result.max_confidence, result.warning);
+                } else {
+                    showError(result.error || 'Classification failed');
+                }
+
+            } catch (error) {
+                console.error('Classification error:', error);
+                showError('Failed to connect to server. Make sure Flask app is running on port 5000.');
+            }
+        }
+
+        function showLoading() {
+            uploadSection.style.display = 'none';
+            loadingSection.style.display = 'block';
+            resultsSection.style.display = 'none';
+        }
+
+        function showResults(predictions, maxConfidence, warning) {
+            loadingSection.style.display = 'none';
+            resultsSection.style.display = 'block';
+
+            // Clear previous predictions
+            predictionsList.innerHTML = '';
+
+            // Add warning if low confidence
+            if (warning) {
+                const warningDiv = document.createElement('div');
+                warningDiv.className = 'error-message';
+                warningDiv.innerHTML = `<strong>⚠️ Note:</strong> ${warning}`;
+                predictionsList.appendChild(warningDiv);
+            }
+
+            // Create prediction items
+            predictions.forEach((pred, index) => {
+                const item = document.createElement('div');
+                item.className = 'prediction-item';
+                if (index === 0) item.classList.add('top-prediction');
+
+                const confidence = (pred.confidence * 100).toFixed(1);
+                
+                item.innerHTML = `
+                    <div class="prediction-label">${pred.emoji} ${pred.class.charAt(0).toUpperCase() + pred.class.slice(1)}</div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="confidence-value">${confidence}%</div>
+                `;
+
+                predictionsList.appendChild(item);
+
+                // Animate confidence bar
+                setTimeout(() => {
+                    const fill = item.querySelector('.confidence-fill');
+                    fill.style.width = `${pred.confidence * 100}%`;
+                }, 100 * index);
+            });
+
+            // Add tips for better results
+            const tipsDiv = document.createElement('div');
+            tipsDiv.className = 'model-info';
+            tipsDiv.style.marginTop = '20px';
+            tipsDiv.innerHTML = `
+                <h3>💡 Tips for Better Results</h3>
+                <p><strong>CIFAR-10 works best with:</strong></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Clear, centered objects (single main subject)</li>
+                    <li>Simple backgrounds (not too cluttered)</li>
+                    <li>Objects that clearly fit one of the 10 categories</li>
+                    <li>Images similar to the training data style</li>
+                </ul>
+                <p><small><strong>Max confidence:</strong> ${(maxConfidence * 100).toFixed(1)}% | 
+                <strong>Recommended:</strong> >30% for reliable predictions</small></p>
+            `;
+            predictionsList.appendChild(tipsDiv);
+        }
+
+        function showError(message) {
+            loadingSection.style.display = 'none';
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `<strong>❌ Error:</strong> ${message}`;
+            
+            uploadSection.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        function resetClassifier() {
+            uploadSection.style.display = 'block';
+            loadingSection.style.display = 'none';
+            resultsSection.style.display = 'none';
+            fileInput.value = '';
+            uploadArea.classList.remove('dragover');
+            
+            // Remove any error messages
+            const errors = document.querySelectorAll('.error-message');
+            errors.forEach(error => error.remove());
+        }
+
+        // Add connection status checker
+        setInterval(checkServerStatus, 30000); // Check every 30 seconds
+    </script>
+</body>
+</html>
